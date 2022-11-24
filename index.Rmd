@@ -1,0 +1,123 @@
+---
+title: "Regional vibrancy explorer ver.0"
+author: "Dr Won Do Lee"
+name: "dashboard"
+output_dir: docs
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    social: menu
+    source_code: https://github.com/wondolee/KCA
+    theme: simplex
+---
+
+```{r setup,message=FALSE, warning=FALSE, paged.print=FALSE,include=FALSE}
+knitr::opts_chunk$set(message = FALSE,warning=FALSE, paged.print=FALSE)
+library(flexdashboard)
+library(dplyr)
+library(leaflet)
+library(DT)
+library(ggplot2)
+library(knitr)
+library(sf)
+library(ggrepel)
+library(tibble)
+library(leaflet.providers)
+Sys.setlocale("LC_ALL","Korean")
+setwd("d:/WORKSPACE/GIT/KCA/")
+admin.data<-st_read('data/sig.shp')
+admin.data$SIG_KOR_NM<-iconv(admin.data$SIG_KOR_NM, localeToCharset(), "UTF-8")
+hotspot<-readRDS("data/card.hotspot.type.rda")
+```
+
+Column {data-width=600}
+-----------------------------------------------------------------------
+
+### Map
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+index.data<-left_join(admin.data,hotspot,by=c("SIG_CD"="code"))
+index.data$type<-as.factor(index.data$type)
+index.data<-st_transform(index.data,4326)
+#levels(index.data$type)<-c("Not Sig.","Hot spot","Cold spot")
+gi.map <- colorNumeric("lightgrey","red","blue",domain=index.data$type)
+
+leaflet(index.data %>% filter(date=="2018-01-01")) %>% 
+  addTiles() %>%
+  addPolygons(fillColor = ~colorBin(gi.map),
+              color="grey20",
+              weight=0.1,
+              fillOpacity = 0.7,
+              label=~labels,
+              highlight=highlightOptions(
+                color="black",
+                bringToFront=TRUE)
+              ) %>%
+  leaflet::addLegend(pal=gi.map,values=~type,
+                      opacity=0.7,title="소비활동 활력 Hot spot 분석결과")
+
+
+leaflet() %>% addProviderTiles('CartoDB.Positron') %>%
+  addTimeline(int.data.tracks.time,timelineOpts = timelineOptions(
+    pointToLayer = htmlwidgets::JS(
+      "
+function(data, latlng) {
+  return L.circleMarker(latlng, {
+    radius: 3
+  })
+}
+"
+    ),
+    style = NULL
+  )
+)
+```
+
+
+```
+
+Column {data-width=400}
+-----------------------------------------------------------------------
+
+### Table
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+for.table<-as.data.frame(index.data)
+for.table$index.01<-round(for.table$index.01,1)
+for.table<-for.table[c(1,3,11,4)]
+colnames(for.table)<-c("시군구 코드","시군구 명","인구감소지역 여부", "어린이집 공급지표(2021)")
+for.table %>% DT::datatable(extensions = 'Buttons',options = list(dom = 'Blfrtip',
+                           buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                           lengthMenu = list(c(10,25,50,-1),
+                                             c(10,25,50,"All"))))
+```
+
+### Graph
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+for.table<-as.data.frame(index.data)
+sum.table<-mean(for.table$index.01)
+sum.table<-c(3,19.23886)
+
+sum.for.table<-for.table %>% group_by (DEPOPULATING) %>% summarise (index.01=mean(index.01))
+sum.for.table<-rbind(sum.for.table,sum.table)
+sum.for.table$KEY<-c("기타지역(평균)","인구감소지역(평균)","관심지역(평균)","전국")
+sum.for.table$KEY <- ordered(sum.for.table$KEY, levels = c("전국","인구감소지역(평균)",
+                                                                   "관심지역(평균)","기타지역(평균)"))
+ggplot(sum.for.table,aes(x=KEY,y=index.01,fill=KEY))+
+    geom_bar(stat='identity', width=0.5,position="dodge")+
+    scale_fill_manual(values=c("black","gray40","gray70","red"))+
+    geom_text(aes(label=round(index.01,1)),vjust=rel(1.5),colour="white",size=rel(7))+
+    theme_minimal()+
+    labs(x=NULL, y=NULL,title="(단위: 영유아 천 명당)")+
+    theme(panel.grid.major.x = element_blank(),
+          panel.grid.minor.x = element_blank(),
+          panel.grid.minor.y = element_blank(),
+          plot.title=element_text(hjust = 1,size=rel(2),colour="black"),
+          legend.position="none",
+          axis.title=element_text(size=rel(1.5),face="bold",colour="black"),
+          axis.text.x = element_text(size=rel(1.5),colour="black",vjust=5),
+          axis.text.y = element_text(size=rel(1.5),face="bold",colour="black"))
+  
+```
