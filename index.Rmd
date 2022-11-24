@@ -38,15 +38,14 @@ Column {data-width=600}
 
 ```{r message=FALSE, warning=FALSE, paged.print=FALSE}
 index.data<-left_join(admin.data,hotspot,by=c("SIG_CD"="code"))
-index.data$type<-as.factor(index.data$type)
+#index.data$type<-as.factor(index.data$type)
 index.data<-st_transform(index.data,4326)
 #levels(index.data$type)<-c("Not Sig.","Hot spot","Cold spot")
 gi.map <- colorNumeric("lightgrey","red","blue",domain=index.data$type)
 
 leaflet(index.data %>% filter(date=="2018-01-01")) %>% 
-  addTiles() %>%
-  addPolygons(fillColor = ~colorBin(gi.map),
-              color="grey20",
+  #addTiles() %>%
+  addPolygons(color = ~pal(type),
               weight=0.1,
               fillOpacity = 0.7,
               label=~labels,
