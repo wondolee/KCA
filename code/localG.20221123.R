@@ -1,5 +1,5 @@
 rm(list=ls())
-setwd("d:/WORKSPACE/GIT/KCA/")
+setwd("d:/GIT/KCA/")
 card.index<-readRDS('data/index.card.monthly.rda')
 card.index$code<-as.factor(card.index$code)
 
@@ -21,8 +21,8 @@ admin.data<-st_transform(admin.data,4326)
 admin.data<-admin.data %>% select(-SIG_KOR_NM)
 
 coords<-gCentroid(as(admin.data,"Spatial"),byid=TRUE)
-knn <-coords %>% knearneigh(., k=4)
-admin_knn <- knn %>% knn2nb() %>% nb2listw(., style="B")
+knn <-knearneigh(coords,k=4)
+admin_knn <- knn %>% knn2nb() %>% nb2listw(., style="W",zero.policy = TRUE)
 
 list.card<-list()
 gstat.pro<-list()
@@ -40,10 +40,9 @@ require(data.table)
 gstat<-plyr::ldply(gstat.pro)
 colnames(gstat)<-c("Gi","E","V","Z","Pr")
 gstat$type<-0 #Insig.
-gstat$type[gstat$Gi>=1.65&gstat$Pr<=0.5]<-1 #hot
-gstat$type[gstat$Gi<=-1.65&gstat$Pr<=0.5]<-2 #cold
+gstat$type[gstat$Gi>=1.65&gstat$Pr<=0.05]<-1 #hot
+gstat$type[gstat$Gi<=-1.65&gstat$Pr<=0.05]<-2 #cold
 
 gstat<-cbind(gstat,card.index %>% select(code,year,month,date))
 hotspot.output<-gstat %>% select(code,year,month,date,type)
 saveRDS(hotspot.output,'data/card.hotspot.type.rda')
-4
